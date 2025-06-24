@@ -1,9 +1,20 @@
-name: Deploy
+name: Deploy to GitHub Pages
 
 on:
   push:
     branches:
       - main
+
+# Add permissions for GitHub Pages deployment
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Allow only one concurrent deployment, skipping runs queued between the run in-progress and latest queued
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
 
 jobs:
   build:
@@ -12,38 +23,37 @@ jobs:
 
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4  # Updated to latest version
 
       - name: Setup Node
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4  # Updated to latest version
+        with:
+          node-version: '18'  # Specify Node version for consistency
+          cache: 'npm'        # Enable npm caching for faster builds
 
       - name: Install dependencies
-        uses: bahmutov/npm-install@v1
+        run: npm ci  # Use npm ci instead of npm install for CI environments
 
       - name: Build project
         run: npm run build
 
-      - name: Upload production-ready build files
-        uses: actions/upload-artifact@v4
+      - name: Setup Pages
+        uses: actions/configure-pages@v4  # Configure GitHub Pages
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3  # Use Pages-specific upload action
         with:
-          name: production-files
-          path: ./dist
+          path: ./dist  # Upload the dist directory
 
   deploy:
     name: Deploy
-    needs: build
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
+    needs: build
 
     steps:
-      - name: Download artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: production-files
-          path: ./dist
-
       - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v3
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./dist
+        id: deployment
+        uses: actions/deploy-pages@v4  # Use the official Pages deployment action
